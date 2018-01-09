@@ -1,23 +1,23 @@
-const express = require('express')
+
+const express = require('express');
+const config = require('./config');
+const auth = require('./routes/tools');
 
 var app = express()
-var router = express.Router()
 
-// predicate the router with a check and bail out when needed
-router.use(function (req, res, next) {
-  if (!req.headers['x-auth']) return next('router')
-  next()
-})
+//Set up mongoose connection
+const url = config.mongoUrl;
+const mongoose = require('mongoose');
+mongoose.connect(url, {
+  useMongoClient: true
+});
+mongoose.Promise = global.Promise;
+var db = mongoose.connection;
+db.on('error', console.error.bind(console, 'MongoDB connection error:'));
 
-router.get('/', function (req, res) {
-  res.send('hello, user!')
-})
+//authentication tools
+app.use('/tools', auth);
 
-// use the router and 401 anything falling through
-app.use('/admin', router)
 
-app.get('/admin', (req, res) => {
-    res.sendStatus(401)
-})
 
 app.listen(3000, () => console.log('MiExpress is listening on port 3000!'))
