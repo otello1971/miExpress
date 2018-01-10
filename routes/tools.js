@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const bodyParser = require('body-parser');
-//const passport = require('passport');
-const authenticate = require('../authenticate');
-//const cors = require('./cors');
 
+//const cors = require('./cors');
+const authenticate = require('../authenticate');
 router.use(bodyParser.json());
 
 // ------------------------------------------------------
@@ -32,11 +31,14 @@ router.post('/signup', authenticate.verifyNewlUser, (req, res, next) => {
 // --                    LOGIN ROUTE                   --
 // --      ALL USERS CAN PERFORM THEESE OPERATIONS     -- 
 // ------------------------------------------------------
-router.post('/login', authenticate.verifyLocalUser, (req, res) => {
+router.post('/login', authenticate.verifyLocalUser, (req, res, next) => {
+  //token and session will expire at the same time
   var token = authenticate.getToken(req.user);
+  authenticate.setCookieToken(req, res, next, token);
+
   res.statusCode = 200;
   res.setHeader('Content-Type', 'application/json');
-  res.json({success: true, token: token, status: 'You are successfully logged in!'});
+  res.json({success: true, status: 'You are successfully logged in!'});
 });
 // ------------------------------------------------------
 // --                   LOGOUT ROUTE                   --
