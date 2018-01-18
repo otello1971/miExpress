@@ -1,16 +1,17 @@
-const express = require('express');
-const router = express.Router();
-const bodyParser = require('body-parser');
+const express = require('express')
+const router = express.Router()
+const bodyParser = require('body-parser')
 
-//const cors = require('./cors');
-const authenticate = require('../authenticate');
-router.use(bodyParser.json());
+// const cors = require('cors')
+const authenticate = require('../authenticate')
+const config = require('../config.js') // app config data
+router.use(bodyParser.json())
 
 // ------------------------------------------------------
 // --               ALL USERS ROUTE: GET               --
 // --  ONLY ADMIN USERS CAN PERFORM THEESE OPERATIONS  --
 // ------------------------------------------------------
-// router.get('/', cors.corsWithOptions, authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => { 
+// router.get('/', cors.corsWithOptions, authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
 //     User.find({})
 //     .then((users) => {
 //         res.statusCode = 200;
@@ -19,43 +20,65 @@ router.use(bodyParser.json());
 //       }, (err) => next(err))
 //     .catch((err) => next(err));
 // });
+
+// ------------------------------------------------------
+// --           POST ROUTE FOR TESTING ONLY            --
+// --      ALL USERS CAN PERFORM THEESE OPERATIONS     --
+// ------------------------------------------------------
+router.post('/', authenticate.verifyJWTUser, (req, res, next) => {
+  console.log('....Estoy en post /')
+  res.statusCode = 200
+  res.setHeader('Content-Type', 'application/json')
+  res.json({ status: 'Ok', body: 'XSRF-JWT is working!' })
+})
+
 // ------------------------------------------------------
 // --                   SIGNUP ROUTE                   --
-// --      ALL USERS CAN PERFORM THEESE OPERATIONS     -- 
+// --      ALL USERS CAN PERFORM THEESE OPERATIONS     --
 // ------------------------------------------------------
-router.post('/signup', authenticate.verifyNewlUser, (req, res, next) => {
-  res.end();
-});
+router.post('/signup', authenticate.verifyNewlUser)
 
 // ------------------------------------------------------
 // --                    LOGIN ROUTE                   --
-// --      ALL USERS CAN PERFORM THEESE OPERATIONS     -- 
+// --      ALL USERS CAN PERFORM THEESE OPERATIONS     --
 // ------------------------------------------------------
-router.post('/login', authenticate.verifyLocalUser, (req, res, next) => {
-  //token and session will expire at the same time
-  var token = authenticate.getToken(req.user);
-  authenticate.setCookieToken(req, res, next, token);
-
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'application/json');
-  res.json({success: true, status: 'You are successfully logged in!'});
-});
+router.post('/login',
+  authenticate.verifyLocalUser, (req, res, next) => {
+    // token and session will expire at the same time
+    var token = authenticate.getToken(req.user)
+    req.session.token = token // token
+    req.sessionOptions.maxAge = // config.expirationTime
+    req.sessionOptions.httpOnly = false
+    req.sessionOptions.exposedHeaders = '*'
+    if (req.session.token) {
+      res.statusCode = 200
+      res.setHeader('Content-Type', 'application/json')
+      res.json({ status: 'logged-in', body: 'You are successfully logged in' })
+      console.log('Session logged-in.')
+    } else {
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'application/json')
+      res.json({ status: 'error', body: 'Cookie has not been created.' })
+    }
+  })
 // ------------------------------------------------------
 // --                   LOGOUT ROUTE                   --
-// --      ALL USERS CAN PERFORM THIS OPERATION        -- 
+// --      ALL USERS CAN PERFORM THIS OPERATION        --
 // ------------------------------------------------------
-// router.get('/logout', cors.corsWithOptions, (req, res) => {
-//   if (req.session) {
-//     req.session.destroy();
-//     res.clearCookie('session-id');
-//     res.redirect('/');
-//   }
-//   else {
-//     var err = new Error('You are not logged in!');
-//     err.status = 403;
-//     next(err);
-//   }
-// });
+router.get('/logout',
+  // authenticate.verifyLocalUser
+  // authenticate.verifyJWTUser,
+  (req, res) => {
+    if (req.session) {
+      req.session = null
+      res.clearCookie('xsrf_token')
+      res.json({ status: 'logout', body: 'You are successfully logged out!' })
+      console.log('Session disconnected.')
+    } else {
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'application/json')
+      res.json({ 'status': 'error', 'body': 'You are not logged in!' })
+    }
+  })
 
-
-module.exports = router;
+module.exports = router

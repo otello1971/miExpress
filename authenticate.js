@@ -1,30 +1,20 @@
-const passport = require('passport');
-const LocalStrategy = require('passport-local').Strategy;
-const User = require('./models/user');
+const passport = require('passport')
+const LocalStrategy = require('passport-local').Strategy
+const User = require('./models/user')
 
-const JwtStrategy = require('passport-jwt').Strategy;
-const ExtractJwt = require('passport-jwt').ExtractJwt;
-const jwt = require('jsonwebtoken'); // used to create, sign, and verify tokens
-const cookieSession = require('cookie-session')
+const JwtStrategy = require('passport-jwt').Strategy
+// const ExtractJwt = require('passport-jwt').ExtractJwt
+const jwt = require('jsonwebtoken') // used to create, sign, and verify tokens
+// const cookieSession = require('cookie-session')
 
-const config = require('./config.js'); //app config data 
+const config = require('./config.js') // app config data
 
 exports.getToken = function (user) {
-    return jwt.sign({"_id": user._id}, config.secretKey, {
-        expiresIn: config.expirationTime // 1 hour
-    });
-};
-
-
-exports.setCookieToken = function (req, res, next, token){
-  // set cookie-session 
-  req.session = cookieSession({
-    name: 'XSRF-TOKEN',
-    secret: token,
-    // Cookie Options
-    maxAge: config.expirationTime // 1 hour
-  })(req, res, next)
+  return jwt.sign({ _id: user._id }, config.secretKey, {
+    expiresIn: config.expirationTime // 1 hour
+  })
 }
+
 // Configure the local strategy for use by Passport.
 //
 // The local strategy require a `verify` function which receives the credentials
@@ -32,68 +22,87 @@ exports.setCookieToken = function (req, res, next, token){
 // that the password is correct and then invoke `cb` with a user object, which
 // will be set at `req.user` in route handlers after authentication.
 passport.use(new LocalStrategy(
-    function(username, password, done) {
-        console.log("usarname en auth es: " + username);
-        User.findOne({"username": username}, (err, user) => {
-            if (err) { return done(err); }
-            if (!user) { return done(null, false); }  
-            if (user.comparePassword(password, function(err1, isMatch) {
-                if (err1) { return done(err1); }  //wrong-password
-                return done(null, user); //correct-passowrd 
-            }));
-       });
-    }));
+  function (username, password, done) {
+    console.log('usarname en auth es: ' + username)
+    User.findOne({ 'username': username }, (err, user) => {
+      if (err) { return done(err) }
+      if (!user) { return done(null, false) }
+      if (user.comparePassword(password, function (err1, isMatch) {
+        if (err1) { return done(err1) } // wrong-password
+        return done(null, user) // correct-passowrd
+      }));
+    })
+  }))
 
 // ////////////////////////////////////////////////////////////////////////.
-// Configure the JWT strategy for use by Passport. 
-var opts = {};
-opts.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
-opts.secretOrKey = config.secretKey;
-jwtPassport = passport.use(new JwtStrategy(opts,
-    (jwt_payload, done) => {
-        console.log("JWT payload: ", jwt_payload);
-        User.findOne({ _id: jwt_payload._id }, (err, user) => {
-            if (err) {
-                return done(err, false);
-            } else if (user) {
-                return done(null, user);
-            } else {
-                return done(null, false);
-            }
-        });
-    }));
+// // Compares cookie and header token (both encoded) returns the jwt in it
+var xsrfExtractor = (req) => {
+  if (req && req.session) {
+    let xsrfToken = req.cookies.xsrf_token // encoded cookie
+    let xXsrfToken = req.headers.x_xsrf_token
+    console.log('xsrf_token: ' + xsrfToken + ', x_xsrf_token: ' + xXsrfToken)
+    if (xsrfToken === xXsrfToken) {
+      return req.session.token // decoded cookie: jwt
+    }
+  }
+  console.log('xsrfExtractor falló.')
+  return null
+}
 
 // ////////////////////////////////////////////////////////////////////////.
-// Verefies the no existance of this user in order to create a new account    
-exports.verifyNewlUser = (req, res) => passport.authenticate('local', {session: false}, (err, user) => {
-    if(err) {
-      res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json');
-      res.json({"err": err});
-    } else if(!user) { //register user
-      user = {};
-      user.username = req.body.username;
-      user.password = req.body.password;
-      User.create(user)
+// Configure the JWT strategy for use by Passport.
+let opts = {}
+// opts.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken() <-- forma original
+opts.jwtFromRequest = xsrfExtractor // <-- elegir una forma de extracción del token
+
+opts.secretOrKey = config.secretKey
+passport.use(new JwtStrategy(opts, (jwtPayload, done) => {
+  console.log('JWT payload: ', jwtPayload)
+  User.findOne({ _id: jwtPayload._id }, (err, user) => {
+    if (err) {
+      return done(err, false)
+    } else if (user) {
+      return done(null, user)
+    } else {
+      return done(null, false)
+    }
+  })
+}))
+
+// ////////////////////////////////////////////////////////////////////////.
+// Verifies the no existance of the user in order to create a new account
+exports.verifyNewlUser = (req, res) => passport.authenticate('local', { session: false }, (err, user) => {
+  if (err) {
+    res.statusCode = 500
+    res.setHeader('Content-Type', 'application/json')
+    res.json({ 'status': 'error', 'body': 'Error.' })
+  } else if (!user) { // register user
+    user = {}
+    user.username = req.body.username
+    user.password = req.body.password
+    User.create(user) // Mongoose creation
       .then(
-        (_user) =>{
-          passport.authenticate('local', {session: false})(req, res, () => {
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.json({"success": true, "status": "Registration Successful!"});
-          });
-        }, 
+        (_user) => {
+          passport.authenticate('local', { session: false })(req, res, () => {
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.json({ status: 'success', 'body': 'Registration Successful!' })
+          })
+        },
         (_err) => {
-          res.statusCode = 500;
-          res.setHeader('Content-Type', 'application/json');
-          res.json({"err": _err});
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.json({ 'status': 'error', 'body': _err })
         })
-      } // end register user
-  })(req, res);
+  } // end register user
+  res.statusCode = 500
+  res.setHeader('Content-Type', 'application/json')
+  res.json({ 'status': 'error', 'body': user.username + ' already exists.' })
+})(req, res)
 
-exports.verifyLocalUser = passport.authenticate('local', {session: false});
+exports.verifyLocalUser = passport.authenticate('local', { session: false })
 
-exports.verifyJWTUser = passport.authenticate('jwt', { session: false });
+exports.verifyJWTUser = passport.authenticate('jwt', { session: false })
 
 // exports.verifyAdmin = function (req, res, next) {
 //     //console.log("**** req.user: " + JSON.stringify(req.user));
@@ -105,4 +114,3 @@ exports.verifyJWTUser = passport.authenticate('jwt', { session: false });
 //         next();
 //     }
 // }
-
