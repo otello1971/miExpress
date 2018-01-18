@@ -48,8 +48,6 @@ router.post('/login',
     var token = authenticate.getToken(req.user)
     req.session.token = token // jwt token
     req.sessionOptions.maxAge = config.expirationTime // same as jwt token
-    req.sessionOptions.httpOnly = false // allows Angular to work with this cookie
-    req.sessionOptions.exposedHeaders = '*' // useful for cookie-parser
     if (req.session.token) {
       res.statusCode = 200
       res.setHeader('Content-Type', 'application/json')

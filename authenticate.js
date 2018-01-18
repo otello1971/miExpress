@@ -5,8 +5,6 @@ const User = require('./models/user')
 const JwtStrategy = require('passport-jwt').Strategy
 // const ExtractJwt = require('passport-jwt').ExtractJwt
 const jwt = require('jsonwebtoken') // used to create, sign, and verify tokens
-// const cookieSession = require('cookie-session')
-
 const config = require('./config.js') // app config data
 
 exports.getToken = function (user) {
