@@ -11,6 +11,7 @@ var app = express()
 app.use(cookieSession({
   name: 'xsrf_token',
   secret: 'secreto'
+  // never set signed=false cause session is lost
 }))
 
 app.use(cookieParser())

@@ -46,10 +46,10 @@ router.post('/login',
   authenticate.verifyLocalUser, (req, res, next) => {
     // token and session will expire at the same time
     var token = authenticate.getToken(req.user)
-    req.session.token = token // token
-    req.sessionOptions.maxAge = // config.expirationTime
-    req.sessionOptions.httpOnly = false
-    req.sessionOptions.exposedHeaders = '*'
+    req.session.token = token // jwt token
+    req.sessionOptions.maxAge = config.expirationTime // same as jwt token
+    req.sessionOptions.httpOnly = false // allows Angular to work with this cookie
+    req.sessionOptions.exposedHeaders = '*' // useful for cookie-parser
     if (req.session.token) {
       res.statusCode = 200
       res.setHeader('Content-Type', 'application/json')

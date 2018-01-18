@@ -24,7 +24,7 @@ exports.getToken = function (user) {
 passport.use(new LocalStrategy(
   function (username, password, done) {
     console.log('usarname en auth es: ' + username)
-    User.findOne({ 'username': username }, (err, user) => {
+    User.findOne({ 'username': username }, (err, user) => { // Mongoose search
       if (err) { return done(err) }
       if (!user) { return done(null, false) }
       if (user.comparePassword(password, function (err1, isMatch) {
